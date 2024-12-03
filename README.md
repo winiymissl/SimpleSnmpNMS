@@ -56,7 +56,7 @@ Monitor the input and output traffic of all network interfaces, etc.
 
 ## Contributing
 
-Contributions are welcome! Please see `CONTRIBUTING.md` for details on how to contribute to this project.
+contact me first
 
 ## License
 
