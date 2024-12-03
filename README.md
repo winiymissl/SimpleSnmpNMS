@@ -1,6 +1,4 @@
 
----
-
 # SimpleSnmpNMS
 
 Local Network Interface Traffic Analysis 🔥
