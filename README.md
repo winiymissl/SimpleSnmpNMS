@@ -1,4 +1,3 @@
-Here’s the provided content translated into English, along with some suggestions for improvement:
 
 ---
 
