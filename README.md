@@ -1,7 +1,3 @@
-Here’s the provided content translated into English, along with some suggestions for improvement:
-
----
-
 # SimpleSnmpNMS
 
 Local Network Interface Traffic Analysis 🔥
