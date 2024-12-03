@@ -1,4 +1,3 @@
-
 # SimpleSnmpNMS
 
 Local Network Interface Traffic Analysis 🔥
@@ -30,7 +29,7 @@ Follow these steps to install the project:
 
    For macOS:
    ```bash
-   brew install python3
+   brew install python
    ```
    **Note:** If you find that `getCmd` is not working, please install `pysnmplib`.
 
@@ -38,7 +37,7 @@ Follow these steps to install the project:
 
    For macOS:
    ```bash
-   brew install snmp
+   brew install net-snmp
    ```
    The default port is 160, which can be modified in the configuration file.
 
@@ -50,11 +49,11 @@ Follow these steps to install the project:
 
 Monitor the input and output traffic of all network interfaces, etc.
 
-
+![img.png](img.png)
 
 ## Contributing
 
-contact me first
+Contributions are welcome! Please see `CONTRIBUTING.md` for details on how to contribute to this project.
 
 ## License
 
