@@ -82,7 +82,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
----
 
 ## Contact
 
@@ -92,7 +91,6 @@ winiymissl@163.com
 
 The API is complete, and you can customize the web interface and Python API.
 
----
 
 ### Soon
 
