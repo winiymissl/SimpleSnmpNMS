@@ -66,6 +66,44 @@
             height: 300px;
             margin-bottom: 20px;
         }
+
+        .device-card {
+            margin-bottom: 20px;
+            transition: transform 0.3s;
+        }
+
+        .device-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .interface-table {
+            width: 100%;
+            margin-top: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .interface-table th,
+        .interface-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .interface-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .interface-table tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .empty-value {
+            color: #999;
+            font-style: italic;
+        }
     </style>
 </head>
 
@@ -86,6 +124,11 @@
                             <i class="bi bi-graph-up"></i> 性能监控
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#device-management">
+                            <i class="bi bi-hdd-network"></i> 设备管理
+                        </a>
+                    </li>
                 </ul>
             </div>
         </nav>
@@ -96,7 +139,7 @@
                 <!-- 系统概览 -->
                 <div id="system-overview" class="content-section">
                     <h1 id="main-title" class="text-center">网络管理平台</h1>
-                    <p class="text-center author">作者：winiymissl</p>
+                    <p class="text-center author">作者：winiymissl-bochen</p>
                 </div>
 
                 <!-- 性能监控 -->
@@ -116,6 +159,24 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 设备管理 -->
+                <div id="device-management" class="content-section" style="display: none;">
+                    <h2>设备管理</h2>
+                    <table class="interface-table">
+                        <thead>
+                        <tr>
+                            <th>接口名称</th>
+                            <th>IPv4地址</th>
+                            <th>IPv6地址</th>
+                            <th>MAC地址</th>
+                        </tr>
+                        </thead>
+                        <tbody id="interfaceTableBody">
+                        <!-- 接口数据将通过JavaScript动态添加 -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </main>
     </div>
@@ -126,6 +187,13 @@
     let interfaceSpeedChart;
     let interfaceTrafficChart;
     let interfaceData = {};
+    let timeData = [];
+    let statusData = {online: [], offline: []};
+    let trafficHistory = {
+        times: [],
+        inData: {},
+        outData: {}
+    };
 
     $(document).ready(function () {
         $('.nav-link').on('click', function (e) {
@@ -138,16 +206,147 @@
             if (target === '#performance-monitor') {
                 initInterfaceCharts();
                 loadInterfaceData();
-                // 开始定时更新
-                setInterval(loadInterfaceData, 3000);  // 每3秒更新一次
+                setInterval(loadInterfaceData, 1000);
+            } else if (target === '#device-management') {
+                loadDevices();
             }
         });
     });
 
+    function loadDevices() {
+        $.ajax({
+            url: "http://127.0.0.1:5000/get_devices",
+            type: "GET",
+            success: function(response) {
+                if(response.status === "success") {
+                    displayInterfaces(response.data);
+                }
+            },
+            error: function() {
+                alert("加载设备列表失败");
+            }
+        });
+    }
+
+    function displayInterfaces(interfaces) {
+        const tableBody = $('#interfaceTableBody');
+        tableBody.empty();
+
+        interfaces.forEach(interface => {
+            const row = `
+                <tr>
+                    <td>${interface.name}</td>
+                    <td>${interface.ipv4 || '<span class="empty-value">未配置</span>'}</td>
+                    <td>${interface.ipv6 || '<span class="empty-value">未配置</span>'}</td>
+                    <td>${interface.mac || '<span class="empty-value">未配置</span>'}</td>
+                </tr>
+            `;
+            tableBody.append(row);
+        });
+    }
+
     function initInterfaceCharts() {
+        // 初始化接口状态图表 - 扇形图
         interfaceStatusChart = echarts.init(document.getElementById('interfaceStatusChart'));
+        interfaceStatusChart.setOption({
+            title: {
+                text: '接口状态监控',
+                left: 'center'
+            },
+            tooltip: {
+                trigger: 'item',
+                formatter: '{b}: {c} ({d}%)'
+            },
+            legend: {
+                orient: 'vertical',
+                left: 'left',
+                data: ['在线', '离线']
+            },
+            series: [
+                {
+                    type: 'pie',
+                    radius: '50%',
+                    data: [
+                        {value: 0, name: '在线'},
+                        {value: 0, name: '离线'}
+                    ],
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 10,
+                            shadowOffsetX: 0,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                        }
+                    }
+                }
+            ]
+        });
+
+        // 初始化接口速度图表 - 柱状图
         interfaceSpeedChart = echarts.init(document.getElementById('interfaceSpeedChart'));
+        interfaceSpeedChart.setOption({
+            title: {
+                text: '接口速度监控'
+            },
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'shadow'
+                }
+            },
+            xAxis: {
+                type: 'category',
+                data: []
+            },
+            yAxis: {
+                type: 'value',
+                name: 'Mbps'
+            },
+            series: [{
+                type: 'bar',
+                data: [],
+                itemStyle: {
+                    color: '#1890ff'
+                }
+            }]
+        });
+
+        // 初始化接口流量图表 - 折线图
         interfaceTrafficChart = echarts.init(document.getElementById('interfaceTrafficChart'));
+        interfaceTrafficChart.setOption({
+            title: {
+                text: '接口流量监控'
+            },
+            tooltip: {
+                trigger: 'axis'
+            },
+            legend: {
+                data: ['入站流量', '出站流量']
+            },
+            xAxis: {
+                type: 'category',
+                data: []
+            },
+            yAxis: {
+                type: 'value',
+                name: 'Bytes/s'
+            },
+            series: [
+                {
+                    name: '入站流量',
+                    type: 'line',
+                    data: [],
+                    smooth: true,
+                    showSymbol: false
+                },
+                {
+                    name: '出站流量',
+                    type: 'line',
+                    data: [],
+                    smooth: true,
+                    showSymbol: false
+                }
+            ]
+        });
     }
 
     function loadInterfaceData() {
@@ -156,7 +355,9 @@
             type: "GET",
             dataType: "json",
             success: function (res) {
-                updateInterfaceCharts(res.data);
+                if(res.status === "success") {
+                    updateInterfaceCharts(res.data);
+                }
             },
             error: function () {
                 console.error('请求失败');
@@ -166,155 +367,83 @@
     }
 
     function updateInterfaceCharts(data) {
-        var interfaces = Object.keys(data.interfaces);
-        var currentTime = new Date();
+        if (!data || !data.interfaces) return;
 
-        interfaces.forEach(intf => {
-            if (!interfaceData[intf]) {
-                interfaceData[intf] = {
-                    status: [],
-                    speed: [],
-                    inData: [],
-                    outData: [],
-                    times: []
-                };
+        const interfaces = Object.keys(data.interfaces);
+        const currentTime = new Date().toLocaleTimeString('zh-CN', {hour12: false});
+        let online = 0;
+        let offline = 0;
+        const speedData = [];
+
+        // 更新流量历史数据
+        trafficHistory.times.push(currentTime);
+        if (trafficHistory.times.length > 60) {
+            trafficHistory.times.shift();
+        }
+
+        interfaces.forEach(name => {
+            const info = data.interfaces[name];
+
+            if(info.status === 'up') {
+                online++;
+            } else {
+                offline++;
             }
 
-            interfaceData[intf].status.push([currentTime, data.interfaces[intf].status === 'up' ? 1 : 0]);
-            interfaceData[intf].speed.push([currentTime, data.interfaces[intf].speed / 1000000]); // 转换为Mbps
-            interfaceData[intf].inData.push([currentTime, (data.interfaces[intf].in_bytes * 8) / 1000000]); // 转换为Mbps
-            interfaceData[intf].outData.push([currentTime, (data.interfaces[intf].out_bytes * 8) / 1000000]); // 转换为Mbps
+            speedData.push(info.speed / 1000000);
 
-            // 保持最近的 60 个数据点（5分钟的数据，每5秒更新一次）
-            if (interfaceData[intf].status.length > 60) {
-                interfaceData[intf].status.shift();
-                interfaceData[intf].speed.shift();
-                interfaceData[intf].inData.shift();
-                interfaceData[intf].outData.shift();
+            if (!trafficHistory.inData[name]) {
+                trafficHistory.inData[name] = [];
+                trafficHistory.outData[name] = [];
+            }
+
+            trafficHistory.inData[name].push(info.in_bytes);
+            trafficHistory.outData[name].push(info.out_bytes);
+
+            if (trafficHistory.inData[name].length > 60) {
+                trafficHistory.inData[name].shift();
+                trafficHistory.outData[name].shift();
             }
         });
 
-        updateInterfaceStatusChart(interfaces);
-        updateInterfaceSpeedChart(interfaces);
-        updateInterfaceTrafficChart(interfaces);
-    }
+        // 更新状态图表 - 扇形图
+        interfaceStatusChart.setOption({
+            series: [{
+                data: [
+                    {value: online, name: '在线'},
+                    {value: offline, name: '离线'}
+                ]
+            }]
+        });
 
-    function updateInterfaceStatusChart(interfaces) {
-        var option = {
-            title: {
-                text: '接口状态',
-                left: 'center'
-            },
-            tooltip: {
-                trigger: 'axis',
-                formatter: function (params) {
-                    var time = new Date(params[0].value[0]).toLocaleTimeString();
-                    return time + '<br/>' + params[0].seriesName + ': ' + (params[0].value[1] === 1 ? '启用' : '禁用');
-                }
-            },
-            legend: {
-                data: interfaces,
-                bottom: 0
-            },
+        // 更新速度图表 - 柱状图
+        interfaceSpeedChart.setOption({
             xAxis: {
-                type: 'time',
-                splitLine: {
-                    show: false
-                }
+                data: interfaces
             },
-            yAxis: {
-                type: 'value',
-                max: 1,
-                min: 0
-            },
-            series: interfaces.map(intf => ({
-                name: intf,
-                type: 'line',
-                data: interfaceData[intf].status,
-                step: 'end'
-            }))
-        };
-        interfaceStatusChart.setOption(option);
-    }
+            series: [{
+                data: speedData
+            }]
+        });
 
-    function updateInterfaceSpeedChart(interfaces) {
-        var option = {
-            title: {
-                text: '接口速度',
-                left: 'center'
-            },
-            tooltip: {
-                trigger: 'axis',
-                formatter: function (params) {
-                    var time = new Date(params[0].value[0]).toLocaleTimeString();
-                    return time + '<br/>' + params[0].seriesName + ': ' + params[0].value[1] + ' Mbps';
-                }
-            },
-            legend: {
-                data: interfaces,
-                bottom: 0
-            },
+        // 更新流量图表 - 折线图
+        interfaceTrafficChart.setOption({
             xAxis: {
-                type: 'time',
-                splitLine: {
-                    show: false
-                }
+                data: trafficHistory.times
             },
-            yAxis: {
-                type: 'value',
-                name: 'Mbps'
-            },
-            series: interfaces.map(intf => ({
-                name: intf,
-                type: 'line',
-                data: interfaceData[intf].speed
-            }))
-        };
-        interfaceSpeedChart.setOption(option);
-    }
-
-    function updateInterfaceTrafficChart(interfaces) {
-        var option = {
-            title: {
-                text: '接口流量',
-                left: 'center'
-            },
-            tooltip: {
-                trigger: 'axis',
-                axisPointer: {
-                    type: 'cross',
-                    label: {
-                        backgroundColor: '#6a7985'
-                    }
-                }
-            },
-            legend: {
-                data: interfaces.flatMap(intf => [intf + ' 入站', intf + ' 出站']),
-                bottom: 0
-            },
-            xAxis: {
-                type: 'time',
-                boundaryGap: false,
-            },
-            yAxis: {
-                type: 'value',
-                name: '流量 (Mbps)'
-            },
-            series: interfaces.flatMap(intf => [
+            series: [
                 {
-                    name: intf + ' 入站',
-                    type: 'line',
-                    data: interfaceData[intf].inData
+                    name: '入站流量',
+                    data: trafficHistory.inData[interfaces[0]]
                 },
                 {
-                    name: intf + ' 出站',
-                    type: 'line',
-                    data: interfaceData[intf].outData
+                    name: '出站流量',
+                    data: trafficHistory.outData[interfaces[0]]
                 }
-            ])
-        };
-        interfaceTrafficChart.setOption(option);
+            ]
+        });
     }
+
 </script>
 </body>
 </html>

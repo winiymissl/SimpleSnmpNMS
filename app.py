@@ -11,6 +11,8 @@ from pysnmp.hlapi import *
 import time
 import json
 from datetime import datetime
+import psutil
+import socket
 
 app = Flask(__name__)
 
@@ -18,6 +20,47 @@ app = Flask(__name__)
 @app.route('/')
 def home():
     return render_template('index.html')
+
+
+@app.route('/get_devices')
+def get_devices():
+    """获取本地网络接口信息"""
+    try:
+        # 获取所有网络接口信息
+        interfaces = psutil.net_if_addrs()
+        devices = []
+
+        for interface_name, addr_list in interfaces.items():
+            device = {
+                'name': interface_name,
+                'ipv4': '',
+                'ipv6': '',
+                'mac': ''
+            }
+
+            # 遍历每个接口的地址信息
+            for addr in addr_list:
+                if addr.family == socket.AF_INET:  # IPv4
+                    device['ipv4'] = addr.address
+                elif addr.family == socket.AF_INET6:  # IPv6
+                    device['ipv6'] = addr.address
+                elif addr.family == psutil.AF_LINK:  # MAC地址
+                    device['mac'] = addr.address
+
+            devices.append(device)
+
+        return jsonify({
+            'status': 'success',
+            'data': devices,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
 
 
 def get_interface_names():
