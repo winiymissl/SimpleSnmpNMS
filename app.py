@@ -20,73 +20,73 @@ def home():
     return render_template('index.html')
 
 
-@app.route('/get_token')
-def get_token():
-    user_name = "devnetuser"
-    pwd = "Cisco123!"
-    url = "https://sandboxdnac2.cisco.com/dna/system/api/v1/auth/token"
-    response = requests.post(url, auth=(user_name, pwd)).json()
-    token = ""
-    if response:
-        token = response['Token']
-    return token
+# @app.route('/get_token')
+# def get_token():
+#     user_name = "devnetuser"
+#     pwd = "Cisco123!"
+#     url = "https://sandboxdnac2.cisco.com/dna/system/api/v1/auth/token"
+#     response = requests.post(url, auth=(user_name, pwd)).json()
+#     token = ""
+#     if response:
+#         token = response['Token']
+#     return token
 
 
-# 获取设备表头信息
-@app.route('/getDeviceFromDNAC')
-def getDeviceFromDNAC():
-    url = "https://sandboxdnac2.cisco.com/dna/intent/api/v1/network-device"
-    token = get_token()
-    my_header = {'X-Auth-Token': token}
-    response = requests.get(url, headers=my_header).json()
-    response = response['response']
-    print(response[0]['type'])
-    my_id = 1
-    result = []
-    for item in response:
-        dic = {}
-        dic['id'] = my_id
-        dic['hostname'] = item['hostname']
-        dic['family'] = item['family']
-        dic['type'] = item['type']
-        dic['ip'] = item['managementIpAddress']
-        dic['time'] = item['lastUpdated']
-        dic['role'] = item['role']
-        dic['stat'] = item['reachabilityStatus']
-        dic['uuid'] = item['id']
-        dic['mac'] = item['macAddress']
-        dic['hostname'] = item['hostname']
-        dic['softwareType'] = item['softwareType']
-        dic['softwareVersion'] = item['softwareVersion']
-        dic['lastUpdated'] = item['lastUpdated']
-        dic['serialNumber'] = item['serialNumber']
-        dic['family'] = item['family']
-        dic['memorySize'] = item['memorySize']
-        my_id = my_id + 1
-        result.append(dic)
-    return json.dumps(result)
+# # 获取设备表头信息
+# @app.route('/getDeviceFromDNAC')
+# def getDeviceFromDNAC():
+#     url = "https://sandboxdnac2.cisco.com/dna/intent/api/v1/network-device"
+#     token = get_token()
+#     my_header = {'X-Auth-Token': token}
+#     response = requests.get(url, headers=my_header).json()
+#     response = response['response']
+#     print(response[0]['type'])
+#     my_id = 1
+#     result = []
+#     for item in response:
+#         dic = {}
+#         dic['id'] = my_id
+#         dic['hostname'] = item['hostname']
+#         dic['family'] = item['family']
+#         dic['type'] = item['type']
+#         dic['ip'] = item['managementIpAddress']
+#         dic['time'] = item['lastUpdated']
+#         dic['role'] = item['role']
+#         dic['stat'] = item['reachabilityStatus']
+#         dic['uuid'] = item['id']
+#         dic['mac'] = item['macAddress']
+#         dic['hostname'] = item['hostname']
+#         dic['softwareType'] = item['softwareType']
+#         dic['softwareVersion'] = item['softwareVersion']
+#         dic['lastUpdated'] = item['lastUpdated']
+#         dic['serialNumber'] = item['serialNumber']
+#         dic['family'] = item['family']
+#         dic['memorySize'] = item['memorySize']
+#         my_id = my_id + 1
+#         result.append(dic)
+#     return json.dumps(result)
 
 
-# 获取设备详细信息
-@app.route('/get_device_detail')
-def get_device_detail():
-    url = "https://sandboxdnac2.cisco.com/dna/intent/api/v1/network-device"
-    token = get_token()
-    my_header = {'X-Auth-Token': token}
-    response = requests.get(url, headers=my_header).json()
-    response = response['response']
-    print(response[0]['type'])
-    return json.dumps(response)
+# # 获取设备详细信息
+# @app.route('/get_device_detail')
+# def get_device_detail():
+#     url = "https://sandboxdnac2.cisco.com/dna/intent/api/v1/network-device"
+#     token = get_token()
+#     my_header = {'X-Auth-Token': token}
+#     response = requests.get(url, headers=my_header).json()
+#     response = response['response']
+#     print(response[0]['type'])
+#     return json.dumps(response)
 
 
-# 获取设备健康信息
-@app.route('/get_device_health')
-def get_device_health():
-    url = "https://sandboxdnac2.cisco.com/dna/intent/api/v1/network-health"
-    token = get_token()
-    my_header = {'X-Auth-Token': token, 'Content-Type': 'application/json'}
-    response = requests.get(url, headers=my_header, verify=False).json()
-    return json.dumps(response)
+# # 获取设备健康信息
+# @app.route('/get_device_health')
+# def get_device_health():
+#     url = "https://sandboxdnac2.cisco.com/dna/intent/api/v1/network-health"
+#     token = get_token()
+#     my_header = {'X-Auth-Token': token, 'Content-Type': 'application/json'}
+#     response = requests.get(url, headers=my_header, verify=False).json()
+#     return json.dumps(response)
 
 
 def get_interface_names():
