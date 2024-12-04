@@ -49,6 +49,7 @@ Follow these steps to install the project:
 
 Monitor the input and output traffic of all network interfaces, etc.
 
+![img_1.png](img_1.png)
 ![img.png](img.png)
 
 ## Contributing
