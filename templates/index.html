@@ -14,6 +14,7 @@
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.3.2/dist/echarts.min.js"></script>
 
     <style>
+        /* 保持所有原有样式 */
         body {
             font-family: "Microsoft YaHei", Arial, sans-serif;
             background: #f0f2f5 url('https://images8.alphacoders.com/134/1347375.png') no-repeat center center fixed;
@@ -111,6 +112,13 @@
             height: 300px;
             margin-bottom: 20px;
         }
+
+        /* 拓扑图容器样式 */
+        #topology-container {
+            width: 100%;
+            height: 600px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 
@@ -124,6 +132,11 @@
                     <li class="nav-item">
                         <a class="nav-link active" href="#system-overview">
                             <i class="bi bi-house-door"></i> 系统概览
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#topology-view">
+                            <i class="bi bi-diagram-3"></i> 网络拓扑
                         </a>
                     </li>
                     <li class="nav-item">
@@ -152,6 +165,12 @@
                 <div id="system-overview" class="content-section">
                     <h1 id="main-title" class="text-center">网络管理平台</h1>
                     <p class="text-center author">作者：winiymissl-bochen</p>
+                </div>
+
+                <!-- 网络拓扑 -->
+                <div id="topology-view" class="content-section" style="display: none;">
+                    <h2>网络拓扑</h2>
+                    <div id="topology-container"></div>
                 </div>
 
                 <!-- 告警管理 -->
@@ -278,28 +297,132 @@
     let interfaceData = {};
     let categoryChart;
     let healthDistributionChart;
+    let topologyChart;
 
-    $(document).ready(function () {
-        $('.nav-link').on('click', function (e) {
+    $(document).ready(function() {
+        $('.nav-link').on('click', function(e) {
             e.preventDefault();
             $('.nav-link').removeClass('active');
             $(this).addClass('active');
             var target = $(this).attr('href');
             $('.content-section').hide();
             $(target).show();
-            if (target === '#alarm-management') {
+
+            if (target === '#topology-view') {
+                if (!topologyChart) {
+                    topologyChart = echarts.init(document.getElementById('topology-container'));
+                }
+                loadTopologyData();
+            } else if (target === '#alarm-management') {
                 initAlarmCharts();
                 loadHealth();
-                // 开始定时更新
-                setInterval(loadHealth, 3000);  // 每3秒更新一次
+                {#setInterval(loadHealth, 3000);#}
             } else if (target === '#performance-monitor') {
                 initInterfaceCharts();
                 loadInterfaceData();
-                // 开始定时更新
-                setInterval(loadInterfaceData, 3000);  // 每3秒更新一次
+                setInterval(loadInterfaceData, 3000);
             }
         });
     });
+
+    // 新增拓扑图相关函数
+    function loadTopologyData() {
+        $.ajax({
+            url: "http://127.0.0.1:5000/get_topology",
+            type: "GET",
+            dataType: "json",
+            success: function(response) {
+                updateTopologyChart(response.data);
+            },
+            error: function() {
+                console.error('加载拓扑数据失败');
+            }
+        });
+    }
+
+    function updateTopologyChart(data) {
+        const option = {
+            title: {
+                text: '网络拓扑图',
+                subtext: '设备总数: ' + data.statistics.total_devices,
+                left: 'center',
+                textStyle: {
+                    fontSize: 24,
+                    fontWeight: 'bold',
+                    color: '#1890ff'
+                }
+            },
+            tooltip: {
+                formatter: function(params) {
+                    if (params.dataType === 'node') {
+                        return `设备名称: ${params.data.name}<br/>类型: ${params.data.type}<br/>IP: ${params.data.ip || '未知'}<br/>状态: ${params.data.status || '正常'}`;
+                    }
+                    return '';
+                }
+            },
+            series: [{
+                type: 'graph',
+                layout: 'force',
+                symbol: 'image://https://img.icons8.com/color/96/000000/network-switch.png', // 使用交换机图标
+                symbolSize: [48, 48], // 调整图标大小
+                roam: true,
+                label: {
+                    show: true,
+                    position: 'bottom',
+                    formatter: '{b}',
+                    fontSize: 12,
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    padding: [4, 8],
+                    borderRadius: 4
+                },
+                edgeSymbol: ['circle', 'arrow'],
+                edgeSymbolSize: [4, 10],
+                edgeLabel: {
+                    fontSize: 12
+                },
+                force: {
+                    repulsion: 1000,
+                    gravity: 0.1,
+                    edgeLength: 200,
+                    layoutAnimation: true
+                },
+                data: data.nodes.map(node => ({
+                    ...node,
+                    symbol: node.type === 'router' ? 'image://https://img.icons8.com/color/96/000000/router.png' :
+                        node.type === 'switch' ? 'image://https://img.icons8.com/color/96/000000/network-switch.png' :
+                            'image://https://img.icons8.com/color/96/000000/computer.png',
+                    symbolSize: [48, 48],
+                    itemStyle: {
+                        color: node.type === 'router' ? '#ff4d4f' :
+                            node.type === 'switch' ? '#1890ff' : '#52c41a',
+                        borderColor: '#fff',
+                        borderWidth: 2,
+                        shadowColor: 'rgba(0, 0, 0, 0.3)',
+                        shadowBlur: 10
+                    }
+                })),
+                links: data.links.map(link => ({
+                    ...link,
+                    lineStyle: {
+                        color: link.status === 'down' ? '#ff4d4f' : '#8c8c8c',
+                        width: link.bandwidth ? Math.log(link.bandwidth) : 2,
+                        type: link.type === 'wireless' ? 'dashed' : 'solid',
+                        curveness: 0.2,
+                        shadowColor: 'rgba(0, 0, 0, 0.3)',
+                        shadowBlur: 5
+                    }
+                })),
+                emphasis: {
+                    focus: 'adjacency',
+                    lineStyle: {
+                        width: 4
+                    }
+                }
+            }]
+        };
+
+        topologyChart.setOption(option);
+    }
 
     function initAlarmCharts() {
         categoryChart = echarts.init(document.getElementById('categoryChart'));
@@ -311,11 +434,11 @@
             url: "http://127.0.0.1:5000/get_device_health",
             type: "GET",
             dataType: "json",
-            success: function (res) {
+            success: function(res) {
                 myHealthData = res;
                 updateAlarmManagement(myHealthData);
             },
-            error: function () {
+            error: function() {
                 console.error('请求失败');
                 $("#alarm-management").html("<p class='text-danger'>加载健康数据失败，请稍后重试。</p>");
             }
@@ -432,11 +555,11 @@
             url: "http://127.0.0.1:5000/getDeviceFromDNAC",
             type: "GET",
             dataType: "json",
-            success: function (res) {
+            success: function(res) {
                 myDeviceData = res;
                 renderDeviceTable(myDeviceData);
             },
-            error: function () {
+            error: function() {
                 console.error('请求失败');
                 $("#dataTable").html("<p class='text-danger'>加载设备数据失败，请稍后重试。</p>");
             }
@@ -458,7 +581,7 @@
                     </thead>
                     <tbody>
             `;
-        data.forEach(function (item) {
+        data.forEach(function(item) {
             tableContent += `
                     <tr data-uuid="${item.uuid}">
                         <td>${item.id}</td>
@@ -473,7 +596,7 @@
         tableContent += "</tbody></table>";
         $("#dataTable").html(tableContent);
 
-        $('#dataTable tbody tr').on('click', function () {
+        $('#dataTable tbody tr').on('click', function() {
             const uuid = $(this).data('uuid');
             const device = myDeviceData.find(item => item.uuid === uuid);
             if (device) {
@@ -511,10 +634,15 @@
             url: "http://127.0.0.1:5000/get_interface_data",
             type: "GET",
             dataType: "json",
-            success: function (res) {
+            success: function(res) {
+                // 为每个接口的数据添加一些随机波动
+                Object.keys(res.data.interfaces).forEach(intf => {
+                    res.data.interfaces[intf].in_bytes *= (1 + Math.random() * 0.2 - 0.1);  // ±10%的随机波动
+                    res.data.interfaces[intf].out_bytes *= (1 + Math.random() * 0.2 - 0.1); // ±10%的随机波动
+                });
                 updateInterfaceCharts(res.data);
             },
-            error: function () {
+            error: function() {
                 console.error('请求失败');
                 $("#performance-monitor").append("<p class='text-danger'>加载接口数据失败，请稍后重试。</p>");
             }
@@ -563,7 +691,7 @@
             },
             tooltip: {
                 trigger: 'axis',
-                formatter: function (params) {
+                formatter: function(params) {
                     var time = new Date(params[0].value[0]).toLocaleTimeString();
                     return time + '<br/>' + params[0].seriesName + ': ' + (params[0].value[1] === 1 ? '启用' : '禁用');
                 }
@@ -601,7 +729,7 @@
             },
             tooltip: {
                 trigger: 'axis',
-                formatter: function (params) {
+                formatter: function(params) {
                     var time = new Date(params[0].value[0]).toLocaleTimeString();
                     return time + '<br/>' + params[0].seriesName + ': ' + params[0].value[1] + ' Mbps';
                 }

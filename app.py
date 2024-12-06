@@ -105,7 +105,6 @@ def get_interface_names():
             return []
 
         num_interfaces = int(varBinds[0][1])
-        num_interfaces = min(num_interfaces, 5)  # 最多获取5个接口
 
         for i in range(num_interfaces):
             errorIndication, errorStatus, errorIndex, varBinds = next(
@@ -196,6 +195,128 @@ def get_interface_data_route():
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         })
 
+
+from flask import jsonify
+from datetime import datetime
+
+@app.route('/get_topology')
+def get_topology():
+    """获取网络拓扑数据的API"""
+    try:
+        # 获取认证 token
+        token = get_token()
+
+        # 调用 DNA Center API
+        url = "https://sandboxdnac2.cisco.com/dna/intent/api/v1/topology/physical-topology"
+        headers = {'X-Auth-Token': token}
+        response = requests.get(url, headers=headers).json()
+
+        # 处理拓扑数据
+        topology_data = process_topology_data(response)
+
+        return jsonify({
+            'status': 'success',
+            'data': topology_data,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }), 500
+
+def process_topology_data(response):
+    """处理拓扑数据的核心逻辑"""
+    try:
+        # 初始化数据结构
+        linklist = []
+        index1 = {}  # 设备标签到类型的映射
+        index2 = {}  # 设备ID到标签的映射
+        linklistf = []  # 最终的连接列表
+        locatelist = {}  # 设备位置信息
+        listfinal = {}  # 最终的拓扑关系
+
+        # 获取链接和节点数据
+        links = response['response']['links']
+        nodes = response['response']['nodes']
+
+        # 处理设备连接关系
+        for link in links:
+            linklist.append([link['source'], link['target']])
+
+        # 处理设备信息
+        wifi_count = 0
+        for node in nodes:
+            if node['deviceType'] == 'Cisco 1140 Unified Access Point':
+                wifi_count += 1
+            if node['deviceType'] not in ['wireless', 'wired']:
+                index1[node['label']] = node['deviceType']
+                index2[node['id']] = node['label']
+
+        # 构建最终的连接列表
+        for link in linklist:
+            if link[0] in index2 and link[1] in index2:
+                linklistf.append([index2[link[0]], index2[link[1]]])
+
+        # 计算设备位置
+        nodes_data = []
+        links_data = []
+        my_map = {}
+
+        # 处理节点位置和信息
+        for i, (device_name, device_type) in enumerate(index1.items()):
+            node = {
+                'id': i,
+                'name': device_name,
+                'type': device_type,
+                'x': calculate_x_position(i),  # 根据需要实现位置计算
+                'y': calculate_y_position(i)
+            }
+            nodes_data.append(node)
+            my_map[device_name] = i
+
+        # 处理连接关系
+        for source_device in linklistf:
+            if source_device[0] in my_map and source_device[1] in my_map:
+                links_data.append({
+                    'source': my_map[source_device[0]],
+                    'target': my_map[source_device[1]]
+                })
+
+        # 添加无线接入点信息
+        if wifi_count > 0:
+            nodes_data.append({
+                'id': len(nodes_data),
+                'name': 'Unified AP',
+                'type': 'access_point',
+                'x': 140,
+                'y': 860,
+                'ap_count': wifi_count
+            })
+
+        return {
+            'nodes': nodes_data,
+            'links': links_data,
+            'statistics': {
+                'total_devices': len(nodes_data),
+                'wireless_ap_count': wifi_count
+            }
+        }
+
+    except Exception as e:
+        raise Exception(f"Error processing topology data: {str(e)}")
+
+def calculate_x_position(index):
+    """计算节点X轴位置"""
+    base_x = 50
+    return base_x + (index * 100)  # 简单的线性分布
+
+def calculate_y_position(index):
+    """计算节点Y轴位置"""
+    base_y = 50
+    return base_y + (index * 80)  # 简单的线性分布
 
 if __name__ == '__main__':
     app.run()
