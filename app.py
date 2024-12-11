@@ -104,7 +104,8 @@ def get_interface_names():
         if errorIndication or errorStatus:
             return []
 
-        num_interfaces = int(varBinds[0][1])
+        # num_interfaces = int(varBinds[0][1])
+        num_interfaces = min(int(varBinds[0][1]), 5)  # 限制为最多5个接口
 
         for i in range(num_interfaces):
             errorIndication, errorStatus, errorIndex, varBinds = next(
@@ -129,7 +130,7 @@ def get_interface_data():
         interface_names = get_interface_names()
         if not interface_names:
             return {'error': 'Failed to get interface names'}
-
+        print(interface_names)
         oids = []
         for i in range(len(interface_names)):
             index = i + 1
